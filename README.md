@@ -9,6 +9,8 @@ This fork by me contains changes and additional features you may find useful, in
 - Page scrubber.
 - Updated library view, including cover view.
 - Progress bar
+- Diagonal Swipes (toggle dark mode, close book, rotate)
+- Swipe up or down to adjust Brightness and Warmth
 - lots more.
 
 [![Tn05](artworks/thumbnail05.png)](artworks/screenshot05.png) [![Tn06](artworks/thumbnail06.png)](artworks/screenshot06.png) [![Tn07](artworks/thumbnail07.png)](artworks/screenshot07.png) [![Tn08](artworks/thumbnail08.png)](artworks/screenshot08.png)
