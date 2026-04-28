@@ -10,6 +10,7 @@
 /.reading-states
 /.fat32-epoch
 /.thumbnail-previews
+/.thumbnail-cache
 /.trash
 /css/*-user.css
 /hyphenation-patterns
