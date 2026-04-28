@@ -3462,6 +3462,52 @@ impl View for Reader {
                 true
             },
             Event::Gesture(GestureEvent::Swipe { dir, start, end }) if self.rect.includes(start) => {
+                if context.settings.reader.edge_swipe_frontlight
+                    && self.view_port.zoom_mode == ZoomMode::FitToPage
+                {
+                    let step = context.settings.reader.frontlight_step;
+                    if step > 0.0 && matches!(dir, Dir::North | Dir::South) {
+                        if let Region::Strip(strip_dir) = Region::from_point(start, self.rect,
+                                                                              context.settings.reader.strip_width,
+                                                                              context.settings.reader.corner_width) {
+                            let step = context.settings.reader.frontlight_step;
+                            let delta = if dir == Dir::North { step } else { -step };
+                            match strip_dir {
+                                Dir::West => {
+                                    let new_intensity = (context.settings.frontlight_levels.intensity + delta)
+                                        .clamp(0.0, 100.0);
+                                    context.settings.frontlight_levels.intensity = new_intensity;
+                                    if !context.settings.frontlight {
+                                        context.set_frontlight(true);
+                                    } else {
+                                        context.frontlight.set_intensity(new_intensity);
+                                    }
+                                    if let Some(index) = locate::<TopBar>(self) {
+                                        self.child_mut(index).downcast_mut::<TopBar>().unwrap()
+                                            .update_frontlight_icon(rq, context);
+                                    }
+                                    return true;
+                                },
+                                Dir::East if CURRENT_DEVICE.has_natural_light() => {
+                                    let new_warmth = (context.settings.frontlight_levels.warmth + delta)
+                                        .clamp(0.0, context.settings.max_warmth);
+                                    context.settings.frontlight_levels.warmth = new_warmth;
+                                    if !context.settings.frontlight {
+                                        context.set_frontlight(true);
+                                    } else {
+                                        context.frontlight.set_warmth(new_warmth);
+                                    }
+                                    if let Some(index) = locate::<TopBar>(self) {
+                                        self.child_mut(index).downcast_mut::<TopBar>().unwrap()
+                                            .update_frontlight_icon(rq, context);
+                                    }
+                                    return true;
+                                },
+                                _ => (),
+                            }
+                        }
+                    }
+                }
                 match self.view_port.zoom_mode {
                     ZoomMode::FitToPage | ZoomMode::FitToWidth => {
                         match dir {
