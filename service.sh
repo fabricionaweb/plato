@@ -14,6 +14,12 @@ fi
 WRAPPER_PATH=mupdf_wrapper
 TARGET_OS=$(uname -s)
 
+if ! [ -e "thirdparty/mupdf/build/release/libmupdf.a" ]; then
+	cd thirdparty/mupdf || exit 1
+	make libs
+	cd -
+fi
+
 if ! [ -e "${WRAPPER_PATH}/${TARGET_OS}" ]; then
 	cd "$WRAPPER_PATH" || exit 1
 	./build.sh
