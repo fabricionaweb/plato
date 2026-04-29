@@ -735,7 +735,7 @@ impl Reader {
         let page_offset = self.view_port.page_offset;
 
         let loc = {
-            let neighloc = match dir { 
+            let neighloc = match dir {
                 CycleDir::Previous => {
                     match self.view_port.zoom_mode {
                         ZoomMode::FitToPage => Location::Previous(current_page),
@@ -2703,7 +2703,48 @@ impl View for Reader {
             },
             Event::Gesture(GestureEvent::Swipe { dir, start, end }) if self.rect.includes(start) => {
                 match self.view_port.zoom_mode {
-                    ZoomMode::FitToPage | ZoomMode::FitToWidth => {
+                    ZoomMode::FitToPage => {
+                        match dir {
+                            Dir::West => self.go_to_neighbor(CycleDir::Next, hub, rq, context),
+                            Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
+                            Dir::South | Dir::North => {
+                                if context.settings.reader.edge_swipe_frontlight &&
+                                   context.settings.reader.frontlight_step > 0.0 {
+                                    let region = Region::from_point(start, self.rect,
+                                                                    context.settings.reader.strip_width,
+                                                                    context.settings.reader.corner_width);
+                                    let step = context.settings.reader.frontlight_step;
+                                    let delta = if dir == Dir::North { step } else { -step };
+                                    match region {
+                                        Region::Strip(Dir::West) => {
+                                            if !context.settings.frontlight {
+                                                context.set_frontlight(true);
+                                                self.reseed(rq, context);
+                                            }
+                                            let levels = context.frontlight.levels();
+                                            let new_intensity = (levels.intensity + delta).clamp(0.0, 100.0);
+                                            context.settings.frontlight_levels.intensity = new_intensity;
+                                            context.frontlight.set_intensity(new_intensity);
+                                        },
+                                        Region::Strip(Dir::East) if CURRENT_DEVICE.has_natural_light() => {
+                                            if !context.settings.frontlight {
+                                                context.set_frontlight(true);
+                                                self.reseed(rq, context);
+                                            }
+                                            let levels = context.frontlight.levels();
+                                            let new_warmth = (levels.warmth + delta).clamp(0.0, 100.0);
+                                            context.settings.frontlight_levels.warmth = new_warmth;
+                                            context.frontlight.set_warmth(new_warmth);
+                                        },
+                                        _ => self.vertical_scroll(start.y - end.y, hub, rq, context),
+                                    }
+                                } else {
+                                    self.vertical_scroll(start.y - end.y, hub, rq, context);
+                                }
+                            },
+                        };
+                    },
+                    ZoomMode::FitToWidth => {
                         match dir {
                             Dir::West => self.go_to_neighbor(CycleDir::Next, hub, rq, context),
                             Dir::East => self.go_to_neighbor(CycleDir::Previous, hub, rq, context),
