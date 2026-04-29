@@ -4,6 +4,29 @@
 
 Documentation: [GUIDE](doc/GUIDE.md), [MANUAL](doc/MANUAL.md) and [BUILD](doc/BUILD.md).
 
+## This fork
+
+This fork contains small opinated changes and features to my personal usage.
+Some modifications were taken from [thataboy](https://github.com/thataboy/plato).
+
+### Fixes:
+- Hide menus before take screenshot
+
+### Features:
+- Screenshot save path default to `/mnt/onboard/Screenshots` but can change in `Settings.toml`.
+- New swipe interactions while reading:
+  - up/down (on left side): increase/decrease brightness
+  - up/down (on right side): increase/decrease warmth (if compatible)
+- New view modes:
+  - Larger thumbnail (2x size)
+  - Cover view
+- New items to menu:
+  - Suspend
+  - Power off
+  - USB
+    - Force reconnect
+    - Auto connect
+
 ## Supported firmwares
 
 Any 4.*X*.*Y* firmware, with *X* ≥ 6, will do.
