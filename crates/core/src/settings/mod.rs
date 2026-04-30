@@ -144,6 +144,8 @@ pub struct LibrarySettings {
     pub first_column: FirstColumn,
     pub second_column: SecondColumn,
     pub thumbnail_previews: bool,
+    pub large_thumbnails: bool,
+    pub cover_view: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hooks: Vec<Hook>,
 }
@@ -159,6 +161,8 @@ impl Default for LibrarySettings {
             first_column: FirstColumn::TitleAndAuthor,
             second_column: SecondColumn::Progress,
             thumbnail_previews: true,
+            large_thumbnails: false,
+            cover_view: false,
             hooks: Vec::new(),
         }
     }

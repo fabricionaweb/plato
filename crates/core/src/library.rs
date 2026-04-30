@@ -19,6 +19,7 @@ pub const METADATA_FILENAME: &str = ".metadata.json";
 pub const FAT32_EPOCH_FILENAME: &str = ".fat32-epoch";
 pub const READING_STATES_DIRNAME: &str = ".reading-states";
 pub const THUMBNAIL_PREVIEWS_DIRNAME: &str = ".thumbnail-previews";
+pub const COVER_CACHE_DIRNAME: &str = ".cover-cache";
 
 pub struct Library {
     pub home: PathBuf,
@@ -88,6 +89,11 @@ impl Library {
         }
 
         let path = home.as_ref().join(THUMBNAIL_PREVIEWS_DIRNAME);
+        if !path.exists() {
+            fs::create_dir(&path).ok();
+        }
+
+        let path = home.as_ref().join(COVER_CACHE_DIRNAME);
         if !path.exists() {
             fs::create_dir(&path).ok();
         }
@@ -261,9 +267,13 @@ impl Library {
                 let rp1 = self.reading_state_path(fp2);
                 let rp2 = self.reading_state_path(fp);
                 fs::rename(rp1, rp2).ok();
-                let tpp = self.thumbnail_preview_path(fp2);
+                let tpp = self.thumbnail_preview_path(fp2, false);
                 if tpp.exists() {
                     fs::remove_file(tpp).ok();
+                }
+                let tpp_large = self.thumbnail_preview_path(fp2, true);
+                if tpp_large.exists() {
+                    fs::remove_file(tpp_large).ok();
                 }
                 self.has_db_changed = true;
             } else {
@@ -291,9 +301,12 @@ impl Library {
                     let rp1 = self.reading_state_path(nfp);
                     let rp2 = self.reading_state_path(fp);
                     fs::rename(rp1, rp2).ok();
-                    let tp1 = self.thumbnail_preview_path(nfp);
-                    let tp2 = self.thumbnail_preview_path(fp);
+                    let tp1 = self.thumbnail_preview_path(nfp, false);
+                    let tp2 = self.thumbnail_preview_path(fp, false);
                     fs::rename(tp1, tp2).ok();
+                    let tp1_large = self.thumbnail_preview_path(nfp, true);
+                    let tp2_large = self.thumbnail_preview_path(fp, true);
+                    fs::rename(tp1_large, tp2_large).ok();
                     if relat != self.db[&fp].file.path {
                         println!("Update path for {}: {} → {}.",
                                  fp, self.db[&fp].file.path.display(), relat.display());
@@ -350,14 +363,17 @@ impl Library {
 
             let reading_states_dir = home.join(READING_STATES_DIRNAME);
             let thumbnail_previews_dir = home.join(THUMBNAIL_PREVIEWS_DIRNAME);
+            let cover_cache_dir = home.join(COVER_CACHE_DIRNAME);
             for entry in fs::read_dir(&reading_states_dir).unwrap()
-                            .chain(fs::read_dir(&thumbnail_previews_dir).unwrap()) {
+                            .chain(fs::read_dir(&thumbnail_previews_dir).unwrap())
+                            .chain(fs::read_dir(&cover_cache_dir).unwrap()) {
                 if entry.is_err() {
                     continue;
                 }
                 let entry = entry.unwrap();
                 if let Some(fp) = entry.path().file_stem()
                                        .and_then(|v| v.to_str())
+                                       .map(|v| v.trim_end_matches("-large"))
                                        .and_then(|v| Fp::from_str(v).ok()) {
                     if !self.db.contains_key(&fp) {
                         fs::remove_file(entry.path()).ok();
@@ -434,9 +450,13 @@ impl Library {
             fs::remove_file(rsp)?;
         }
 
-        let tpp = self.thumbnail_preview_path(fp);
+        let tpp = self.thumbnail_preview_path(fp, false);
         if tpp.exists() {
             fs::remove_file(tpp)?;
+        }
+        let tpp_large = self.thumbnail_preview_path(fp, true);
+        if tpp_large.exists() {
+            fs::remove_file(tpp_large)?;
         }
 
         if self.mode == LibraryMode::Database {
@@ -490,10 +510,15 @@ impl Library {
             fs::copy(&rsp_src, &rsp_dest)?;
         }
 
-        let tpp_src = self.thumbnail_preview_path(fp);
+        let tpp_src = self.thumbnail_preview_path(fp, false);
         if tpp_src.exists() {
-            let tpp_dest = other.thumbnail_preview_path(fp);
+            let tpp_dest = other.thumbnail_preview_path(fp, false);
             fs::copy(&tpp_src, &tpp_dest)?;
+        }
+        let tpp_src_large = self.thumbnail_preview_path(fp, true);
+        if tpp_src_large.exists() {
+            let tpp_dest_large = other.thumbnail_preview_path(fp, true);
+            fs::copy(&tpp_src_large, &tpp_dest_large)?;
         }
 
         if other.mode == LibraryMode::Database {
@@ -565,10 +590,15 @@ impl Library {
             fs::rename(&rsp_src, &rsp_dest)?;
         }
 
-        let tpp_src = self.thumbnail_preview_path(fp);
+        let tpp_src = self.thumbnail_preview_path(fp, false);
         if tpp_src.exists() {
-            let tpp_dest = other.thumbnail_preview_path(fp);
+            let tpp_dest = other.thumbnail_preview_path(fp, false);
             fs::rename(&tpp_src, &tpp_dest)?;
+        }
+        let tpp_src_large = self.thumbnail_preview_path(fp, true);
+        if tpp_src_large.exists() {
+            let tpp_dest_large = other.thumbnail_preview_path(fp, true);
+            fs::rename(&tpp_src_large, &tpp_dest_large)?;
         }
 
         if other.mode == LibraryMode::Database {
@@ -640,14 +670,17 @@ impl Library {
 
         let reading_states_dir = self.home.join(READING_STATES_DIRNAME);
         let thumbnail_previews_dir = self.home.join(THUMBNAIL_PREVIEWS_DIRNAME);
+        let cover_cache_dir = self.home.join(COVER_CACHE_DIRNAME);
         for entry in fs::read_dir(&reading_states_dir).unwrap()
-                        .chain(fs::read_dir(&thumbnail_previews_dir).unwrap()) {
+                        .chain(fs::read_dir(&thumbnail_previews_dir).unwrap())
+                        .chain(fs::read_dir(&cover_cache_dir).unwrap()) {
             if entry.is_err() {
                 continue;
             }
             let entry = entry.unwrap();
             if let Some(fp) = entry.path().file_stem()
                                    .and_then(|v| v.to_str())
+                                   .map(|v| v.trim_end_matches("-large"))
                                    .and_then(|v| Fp::from_str(v).ok()) {
                 if !fps.contains(&fp) {
                     fs::remove_file(entry.path()).ok();
@@ -713,7 +746,33 @@ impl Library {
                     .metadata().unwrap()
                     .fingerprint(self.fat32_epoch).unwrap()
             });
-            self.thumbnail_preview_path(fp)
+            self.thumbnail_preview_path(fp, false)
+        }
+    }
+
+    pub fn thumbnail_preview_large<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        if path.as_ref().starts_with(THUMBNAIL_PREVIEWS_DIRNAME) {
+            self.home.join(path.as_ref())
+        } else {
+            let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+                self.home.join(path.as_ref())
+                    .metadata().unwrap()
+                    .fingerprint(self.fat32_epoch).unwrap()
+            });
+            self.thumbnail_preview_path(fp, true)
+        }
+    }
+
+    pub fn cover_preview<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        if path.as_ref().starts_with(COVER_CACHE_DIRNAME) {
+            self.home.join(path.as_ref())
+        } else {
+            let fp = self.paths.get(path.as_ref()).cloned().unwrap_or_else(|| {
+                self.home.join(path.as_ref())
+                    .metadata().unwrap()
+                    .fingerprint(self.fat32_epoch).unwrap()
+            });
+            self.cover_preview_path(fp)
         }
     }
 
@@ -841,9 +900,20 @@ impl Library {
             .join(format!("{}.json", fp))
     }
 
-    fn thumbnail_preview_path(&self, fp: Fp) -> PathBuf {
+    fn thumbnail_preview_path(&self, fp: Fp, large: bool) -> PathBuf {
+        let filename = if large {
+            format!("{}-large.png", fp)
+        } else {
+            format!("{}.png", fp)
+        };
         self.home
             .join(THUMBNAIL_PREVIEWS_DIRNAME)
+            .join(filename)
+    }
+
+    fn cover_preview_path(&self, fp: Fp) -> PathBuf {
+        self.home
+            .join(COVER_CACHE_DIRNAME)
             .join(format!("{}.png", fp))
     }
 }

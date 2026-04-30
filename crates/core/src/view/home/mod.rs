@@ -160,8 +160,9 @@ impl Home {
                                          rect.max.x, rect.max.y - small_height - small_thickness],
                                    library_settings.first_column,
                                    library_settings.second_column,
-                                   library_settings.thumbnail_previews);
-
+                                   library_settings.thumbnail_previews,
+                                   library_settings.large_thumbnails,
+                                   library_settings.cover_view);
 
         let max_lines = shelf.max_lines;
         let pages_count = (visible_books.len() as f32 / max_lines as f32).ceil() as usize;
@@ -364,23 +365,31 @@ impl Home {
 
     fn update_thumbnail_previews(&mut self, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         let selected_library = context.settings.selected_library;
-        self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap()
-           .set_thumbnail_previews(context.settings.libraries[selected_library].thumbnail_previews);
-        self.update_shelf(false, hub, rq, context);
+        let settings = &context.settings.libraries[selected_library];
+        let was_resized = {
+            let shelf = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap();
+            let old_max_lines = shelf.compute_max_lines();
+            let thumbnail_previews = settings.thumbnail_previews && !settings.cover_view;
+            shelf.set_thumbnail_previews(thumbnail_previews);
+            shelf.set_cover_view(settings.cover_view);
+            shelf.set_large_thumbnails(settings.large_thumbnails);
+            shelf.compute_max_lines() != old_max_lines
+        };
+        self.update_shelf(was_resized, hub, rq, context);
+        self.update_bottom_bar(rq, context);
     }
 
+
     fn update_shelf(&mut self, was_resized: bool, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
-        let dpi = CURRENT_DEVICE.dpi;
-        let big_height = scale_by_dpi(BIG_BAR_HEIGHT, dpi) as i32;
-        let thickness = scale_by_dpi(THICKNESS_MEDIUM, dpi) as i32;
         let shelf = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>().unwrap();
-        let max_lines = ((shelf.rect.height() as i32 + thickness) / big_height) as usize;
+        let max_lines = shelf.compute_max_lines();
+        shelf.max_lines = max_lines;
 
         if was_resized {
             let page_position = if self.visible_books.is_empty() {
                 0.0
             } else {
-                self.current_page as f32 * (shelf.max_lines as f32 /
+                self.current_page as f32 * (max_lines as f32 /
                                             self.visible_books.len() as f32)
             };
 
@@ -1016,10 +1025,12 @@ impl Home {
 
             entries.push(EntryKind::Separator);
 
-            let first_column = library_settings.first_column;
-            entries.push(EntryKind::SubMenu("First Column".to_string(),
-                vec![EntryKind::RadioButton("Title and Author".to_string(), EntryId::FirstColumn(FirstColumn::TitleAndAuthor), first_column == FirstColumn::TitleAndAuthor),
-                     EntryKind::RadioButton("File Name".to_string(), EntryId::FirstColumn(FirstColumn::FileName), first_column == FirstColumn::FileName)]));
+            if !library_settings.cover_view {
+                let first_column = library_settings.first_column;
+                entries.push(EntryKind::SubMenu("First Column".to_string(),
+                    vec![EntryKind::RadioButton("Title and Author".to_string(), EntryId::FirstColumn(FirstColumn::TitleAndAuthor), first_column == FirstColumn::TitleAndAuthor),
+                         EntryKind::RadioButton("File Name".to_string(), EntryId::FirstColumn(FirstColumn::FileName), first_column == FirstColumn::FileName)]));
+            }
 
             let second_column = library_settings.second_column;
             entries.push(EntryKind::SubMenu("Second Column".to_string(),
@@ -1029,6 +1040,16 @@ impl Home {
             entries.push(EntryKind::CheckBox("Thumbnail Previews".to_string(),
                                              EntryId::ThumbnailPreviews,
                                              library_settings.thumbnail_previews));
+
+            if library_settings.thumbnail_previews && !library_settings.cover_view {
+                entries.push(EntryKind::CheckBox("Large Thumbnails".to_string(),
+                                                 EntryId::LargeThumbnails,
+                                                 library_settings.large_thumbnails));
+            }
+
+            entries.push(EntryKind::CheckBox("Cover View".to_string(),
+                                             EntryId::CoverView,
+                                             library_settings.cover_view));
 
             let trash_path = context.library.home.join(TRASH_DIRNAME);
             if let Ok(trash) = Library::new(trash_path, LibraryMode::Database)
@@ -1225,7 +1246,10 @@ impl Home {
         if let Some(shelf) = self.children[self.shelf_index].as_mut().downcast_mut::<Shelf>() {
             shelf.set_first_column(library_settings.first_column);
             shelf.set_second_column(library_settings.second_column);
-            shelf.set_thumbnail_previews(library_settings.thumbnail_previews);
+            let thumbnail_previews = library_settings.thumbnail_previews && !library_settings.cover_view;
+            shelf.set_thumbnail_previews(thumbnail_previews);
+            shelf.set_cover_view(library_settings.cover_view);
+            shelf.set_large_thumbnails(library_settings.large_thumbnails);
         }
 
         let home = context.library.home.clone();
@@ -1570,6 +1594,24 @@ impl View for Home {
             Event::Select(EntryId::ThumbnailPreviews) => {
                 let selected_library = context.settings.selected_library;
                 context.settings.libraries[selected_library].thumbnail_previews = !context.settings.libraries[selected_library].thumbnail_previews;
+                if context.settings.libraries[selected_library].thumbnail_previews {
+                    context.settings.libraries[selected_library].cover_view = false;
+                }
+                self.update_thumbnail_previews(hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::CoverView) => {
+                let selected_library = context.settings.selected_library;
+                context.settings.libraries[selected_library].cover_view = !context.settings.libraries[selected_library].cover_view;
+                if context.settings.libraries[selected_library].cover_view {
+                    context.settings.libraries[selected_library].thumbnail_previews = false;
+                }
+                self.update_thumbnail_previews(hub, rq, context);
+                true
+            },
+            Event::Select(EntryId::LargeThumbnails) => {
+                let selected_library = context.settings.selected_library;
+                context.settings.libraries[selected_library].large_thumbnails = !context.settings.libraries[selected_library].large_thumbnails;
                 self.update_thumbnail_previews(hub, rq, context);
                 true
             },

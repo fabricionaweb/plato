@@ -25,13 +25,14 @@ pub struct Book {
     index: usize,
     first_column: FirstColumn,
     second_column: SecondColumn,
+    cover_view: bool,
     preview_path: Option<PathBuf>,
     active: bool,
 }
 
 impl Book {
     pub fn new(rect: Rectangle, info: Info, index: usize,
-               first_column: FirstColumn, second_column: SecondColumn, preview_path: Option<PathBuf>) -> Book {
+               first_column: FirstColumn, second_column: SecondColumn, cover_view: bool, preview_path: Option<PathBuf>) -> Book {
         Book {
             id: ID_FEEDER.next(),
             rect,
@@ -40,6 +41,7 @@ impl Book {
             index,
             first_column,
             second_column,
+            cover_view,
             preview_path,
             active: false,
         }
@@ -92,6 +94,88 @@ impl View for Book {
         };
 
         fb.draw_rectangle(&self.rect, scheme[0]);
+
+        if self.cover_view {
+            let indicator_height = scale_by_dpi(60.0, dpi) as i32;
+            let max_cover_height = (self.rect.height() as i32 - indicator_height).max(indicator_height);
+            let max_cover_width = self.rect.width() as i32;
+
+            let mut cover_height = max_cover_height;
+            let mut cover_width = 3 * cover_height / 4;
+
+            if cover_width > max_cover_width {
+                cover_width = max_cover_width;
+                cover_height = 4 * cover_width / 3;
+            }
+
+            let content_height = cover_height + indicator_height;
+            let y_offset = ((self.rect.height() as i32 - content_height) / 2).max(0);
+
+            // Draw cover image
+            if let Some(preview_path) = self.preview_path.as_ref() {
+                if preview_path.exists() {
+                    if let Some((pixmap, _)) = PdfOpener::new().and_then(|opener| {
+                        opener.open(preview_path)
+                    }).and_then(|mut doc| {
+                        doc.dims(0).and_then(|dims| {
+                            let scale = (cover_width as f32 / dims.0).min(cover_height as f32 / dims.1);
+                            doc.pixmap(Location::Exact(0), scale, CURRENT_DEVICE.color_samples())
+                        })
+                    }) {
+                        let dx = ((self.rect.width() as i32 - pixmap.width as i32) / 2).max(0);
+                        let dy = (cover_height - pixmap.height as i32) / 2;
+                        let pt = pt!(self.rect.min.x + dx, self.rect.min.y + y_offset + dy);
+                        fb.draw_pixmap(&pixmap, pt);
+                        if fb.inverted() {
+                            let rect = pixmap.rect() + pt;
+                            fb.invert_region(&rect);
+                        }
+                    }
+                }
+            }
+
+            // Draw second column indicator in remaining space below cover
+            let indicator_y = self.rect.min.y + y_offset + cover_height;
+            let indicator_center = pt!(self.rect.center().x, indicator_y + indicator_height / 2);
+
+            match self.second_column {
+                SecondColumn::Year => {
+                    let font = font_from_style(fonts, &MD_YEAR, dpi);
+                    let plan = font.plan(&self.info.year, None, None);
+                    let pt = pt!(indicator_center.x - plan.width / 2,
+                                 indicator_center.y + font.x_heights.1 as i32 / 2);
+                    font.render(fb, scheme[1], &plan, pt);
+                },
+                SecondColumn::Progress => {
+                    let progress_height = scale_by_dpi(PROGRESS_HEIGHT, dpi) as i32;
+                    let thickness = scale_by_dpi(THICKNESS_SMALL, dpi) as u16;
+                    let (small_radius, big_radius) = halves(progress_height);
+                    match self.info.status() {
+                        Status::New | Status::Finished => {
+                            let color = if self.info.reader.is_none() { WHITE } else { BLACK };
+                            fb.draw_rounded_rectangle_with_border(&rect![indicator_center - pt!(small_radius, small_radius),
+                                                                         indicator_center + pt!(big_radius, big_radius)],
+                                                                  &CornerSpec::Uniform(small_radius),
+                                                                  &BorderSpec { thickness, color: BLACK },
+                                                                  &color);
+                        },
+                        Status::Reading(progress) => {
+                            let progress_width = self.rect.width() as i32 / 3;
+                            let (small_progress_width, big_progress_width) = halves(progress_width);
+                            let x_offset = indicator_center.x - progress_width / 2 +
+                                           (progress_width as f32 * progress.min(1.0)) as i32;
+                            fb.draw_rounded_rectangle_with_border(&rect![indicator_center - pt!(small_progress_width, small_radius),
+                                                                         indicator_center + pt!(big_progress_width, big_radius)],
+                                                                  &CornerSpec::Uniform(small_radius),
+                                                                  &BorderSpec { thickness, color: BLACK },
+                                                                  &|x, _| if x < x_offset { READING_PROGRESS } else { WHITE });
+                        }
+                    }
+                },
+            }
+
+            return;
+        }
 
         let (title, author) = if self.first_column == FirstColumn::TitleAndAuthor {
             (self.info.title(), self.info.author.as_str())
