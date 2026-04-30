@@ -193,6 +193,11 @@ amplitude = 4.0
 # min-speed = 0.0
 # max-speed = 3000.0
 
+[screenshot]
+# The path to save screenshots.
+# Relative paths are relative to "/mnt/onboard". Also accepts full path.
+save-path = "Screenshots"
+
 [calculator]
 # The default font size and margin width, for the Calculator application.
 # The units are the same as in the `[reader]` section.
