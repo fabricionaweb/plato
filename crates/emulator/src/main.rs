@@ -552,6 +552,12 @@ fn main() -> Result<(), Error> {
                     rq.add(RenderData::new(view.id(), context.fb.rect(), UpdateMode::Gui));
                 },
                 Event::Select(EntryId::TakeScreenshot) => {
+                    view.children_mut().retain(|child| !child.is::<Menu>());
+                    if let Some(reader) = view.as_mut().downcast_mut::<Reader>() {
+                        reader.toggle_bars(Some(false), &tx, &mut rq, &mut context);
+                    }
+                    rq.add(RenderData::expose(context.fb.rect(), UpdateMode::Full));
+                    process_render_queue(view.as_ref(), &mut rq, &mut context, &mut updating);
                     let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
                     let msg = match context.fb.save(&name.to_string()) {
                         Err(e) => format!("Couldn't take screenshot: {}).", e),
