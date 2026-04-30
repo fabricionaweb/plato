@@ -122,6 +122,7 @@ pub struct Settings {
     pub import: ImportSettings,
     pub dictionary: DictionarySettings,
     pub sketch: SketchSettings,
+    pub screenshot: ScreenshotSettings,
     pub calculator: CalculatorSettings,
     pub battery: BatterySettings,
     pub frontlight_levels: LightLevels,
@@ -253,6 +254,20 @@ impl Default for CalculatorSettings {
             font_size: 8.0,
             margin_width: 2,
             history_size: 4096,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+pub struct ScreenshotSettings {
+    pub save_path: PathBuf,
+}
+
+impl Default for ScreenshotSettings {
+    fn default() -> Self {
+        ScreenshotSettings {
+            save_path: PathBuf::from("Screenshots"),
         }
     }
 }
@@ -555,6 +570,7 @@ impl Default for Settings {
             import: ImportSettings::default(),
             dictionary: DictionarySettings::default(),
             sketch: SketchSettings::default(),
+            screenshot: ScreenshotSettings::default(),
             calculator: CalculatorSettings::default(),
             battery: BatterySettings::default(),
             frontlight_levels: LightLevels::default(),

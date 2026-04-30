@@ -1,8 +1,8 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::env;
 use std::thread;
 use std::process::Command;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -25,7 +25,7 @@ use plato_core::input::{DeviceEvent, PowerSource, ButtonCode, ButtonStatus, VAL_
 use plato_core::input::{raw_events, device_events, usb_events, display_rotate_event, button_scheme_event};
 use plato_core::gesture::{GestureEvent, gesture_events};
 use plato_core::helpers::{load_toml, save_toml};
-use plato_core::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock, IntermKind};
+use plato_core::settings::{ButtonScheme, Settings, SETTINGS_PATH, RotationLock, IntermKind, INTERNAL_CARD_ROOT};
 use plato_core::frontlight::{Frontlight, StandardFrontlight, NaturalFrontlight, PremixedFrontlight};
 use plato_core::lightsensor::{LightSensor, KoboLightSensor};
 use plato_core::battery::{Battery, KoboBattery};
@@ -935,10 +935,20 @@ pub fn run() -> Result<(), Error> {
                 }
                 rq.add(RenderData::expose(context.fb.rect(), UpdateMode::Full));
                 process_render_queue(view.as_ref(), &mut rq, &mut context, &mut updating);
+                let save_path = if context.settings.screenshot.save_path.is_absolute() {
+                    context.settings.screenshot.save_path.clone()
+                } else {
+                    PathBuf::from(INTERNAL_CARD_ROOT).join(&context.settings.screenshot.save_path)
+                };
                 let name = Local::now().format("screenshot-%Y%m%d_%H%M%S.png");
-                let msg = match context.fb.save(&name.to_string()) {
-                    Err(e) => format!("{}", e),
-                    Ok(_) => format!("Saved {}.", name),
+                let path = save_path.join(name.to_string());
+                let msg = if let Err(e) = fs::create_dir_all(&save_path) {
+                    format!("Can't create screenshot directory: {}).", e)
+                } else {
+                    match context.fb.save(&path.to_string_lossy()) {
+                        Err(e) => format!("{}", e),
+                        Ok(_) => format!("Saved {}.", path.display()),
+                    }
                 };
                 let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
