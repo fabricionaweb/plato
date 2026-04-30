@@ -11,6 +11,7 @@
 /.fat32-epoch
 /.thumbnail-previews
 /.thumbnail-cache
+/.cover-cache
 /.trash
 /css/*-user.css
 /hyphenation-patterns

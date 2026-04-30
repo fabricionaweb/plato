@@ -530,6 +530,8 @@ pub enum EntryId {
     FirstColumn(FirstColumn),
     SecondColumn(SecondColumn),
     ThumbnailPreviews,
+    CoverView,
+    LargeThumbnails,
     ApplyCroppings(usize, PageScheme),
     RemoveCroppings,
     SetZoomMode(ZoomMode),
