@@ -1471,7 +1471,7 @@ impl Reader {
         }
     }
 
-    fn toggle_bars(&mut self, enable: Option<bool>, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
+    pub fn toggle_bars(&mut self, enable: Option<bool>, hub: &Hub, rq: &mut RenderQueue, context: &mut Context) {
         if let Some(top_index) = locate::<TopBar>(self) {
             if let Some(true) = enable {
                 return;
