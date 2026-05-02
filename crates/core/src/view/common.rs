@@ -109,7 +109,16 @@ pub fn toggle_main_menu(view: &mut dyn View, rect: Rectangle, enable: Option<boo
                                EntryKind::SubMenu("Applications".to_string(), apps),
                                EntryKind::Separator];
 
+        let usb_entries = vec![
+                              EntryKind::Command("Force reconnect".to_string(),
+                                                 EntryId::UsbForceReconnect),
+                              EntryKind::CheckBox("Auto connect".to_string(),
+                                                  EntryId::ToggleAutoShare,
+                                                  context.settings.auto_share)];
+        entries.push(EntryKind::SubMenu("USB".to_string(), usb_entries));
+        entries.push(EntryKind::Command("Suspend".to_string(), EntryId::Suspend));
         entries.push(EntryKind::Command("Reboot".to_string(), EntryId::Reboot));
+        entries.push(EntryKind::Command("Power off".to_string(), EntryId::PowerOff));
         entries.push(EntryKind::Command("Quit".to_string(), EntryId::Quit));
 
         if CURRENT_DEVICE.has_page_turn_buttons() {

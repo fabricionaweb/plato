@@ -608,6 +608,28 @@ fn main() -> Result<(), Error> {
                 Event::Device(DeviceEvent::RotateScreen(n)) => {
                     tx.send(Event::Select(EntryId::Rotate(n))).ok();
                 },
+                Event::Select(EntryId::ToggleWifi) => {
+                    context.settings.wifi = !context.settings.wifi;
+                },
+                Event::Select(EntryId::UsbForceReconnect) => {
+                    let dialog = Dialog::new(ViewId::ShareDialog,
+                                             Some(Event::PrepareShare),
+                                             "Share storage via USB?".to_string(),
+                                             &mut context);
+                    rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                    view.children_mut().push(Box::new(dialog) as Box<dyn View>);
+                },
+                Event::Select(EntryId::ToggleAutoShare) => {
+                    context.settings.auto_share = !context.settings.auto_share;
+                },
+                Event::Select(EntryId::Suspend) => {
+                    view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
+                    let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                    rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
+                    // In emulator, immediately prepare suspend (no real hardware to suspend)
+                    tx.send(Event::PrepareSuspend).ok();
+                    view.children_mut().push(Box::new(interm) as Box<dyn View>);
+                },
                 Event::Select(EntryId::Quit) => {
                     break 'outer;
                 },

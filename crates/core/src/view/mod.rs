@@ -577,7 +577,11 @@ pub enum EntryId {
     New,
     Refresh,
     TakeScreenshot,
+    UsbForceReconnect,
+    ToggleAutoShare,
+    Suspend,
     Reboot,
+    PowerOff,
     Quit,
 }
 
