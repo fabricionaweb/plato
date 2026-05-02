@@ -49,7 +49,7 @@ impl Intermission {
             rect,
             children: Vec::new(),
             message,
-            halt: kind == IntermKind::PowerOff,
+            halt: false,
         }
     }
 }

@@ -928,6 +928,21 @@ pub fn run() -> Result<(), Error> {
             Event::Select(EntryId::ToggleWifi) => {
                 set_wifi(!context.settings.wifi, &mut context);
             },
+            Event::Select(EntryId::UsbForceReconnect) => {
+                if !context.plugged {
+                    continue;
+                }
+
+                let dialog = Dialog::new(ViewId::ShareDialog,
+                                         Some(Event::PrepareShare),
+                                         "Share storage via USB?".to_string(),
+                                         &mut context);
+                rq.add(RenderData::new(dialog.id(), *dialog.rect(), UpdateMode::Gui));
+                view.children_mut().push(Box::new(dialog) as Box<dyn View>);
+            },
+            Event::Select(EntryId::ToggleAutoShare) => {
+                context.settings.auto_share = !context.settings.auto_share;
+            },
             Event::Select(EntryId::TakeScreenshot) => {
                 view.children_mut().retain(|child| !child.is::<Menu>());
                 if let Some(reader) = view.as_mut().downcast_mut::<Reader>() {
@@ -966,8 +981,21 @@ pub fn run() -> Result<(), Error> {
                 let notif = Notification::new(msg, &tx, &mut rq, &mut context);
                 view.children_mut().push(Box::new(notif) as Box<dyn View>);
             },
+            Event::Select(EntryId::Suspend) => {
+                view.handle_event(&Event::Suspend, &tx, &mut bus, &mut rq, &mut context);
+                let interm = Intermission::new(context.fb.rect(), IntermKind::Suspend, &context);
+                rq.add(RenderData::new(interm.id(), *interm.rect(), UpdateMode::Full));
+                schedule_task(TaskId::PrepareSuspend, Event::PrepareSuspend,
+                              PREPARE_SUSPEND_WAIT_DELAY, &tx, &mut tasks);
+                view.children_mut().push(Box::new(interm) as Box<dyn View>);
+            },
             Event::Select(EntryId::Reboot) => {
                 exit_status = ExitStatus::Reboot;
+                break;
+            },
+            Event::Select(EntryId::PowerOff) => {
+                power_off(view.as_mut(), &mut history, &mut updating, &mut context);
+                exit_status = ExitStatus::PowerOff;
                 break;
             },
             Event::Select(EntryId::Quit) => {
