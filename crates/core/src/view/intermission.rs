@@ -5,7 +5,7 @@ use crate::geom::Rectangle;
 use crate::font::{Fonts, font_from_style, DISPLAY_STYLE};
 use super::{View, Event, Hub, Bus, Id, ID_FEEDER, RenderQueue};
 use crate::framebuffer::Framebuffer;
-use crate::settings::{IntermKind, LOGO_SPECIAL_PATH, COVER_SPECIAL_PATH};
+use crate::settings::{IntermKind, LOGO_SPECIAL_PATH, COVER_SPECIAL_PATH, SCREENSAVER_SPECIAL_PATH};
 use crate::metadata::{SortMethod, BookQuery, sort};
 use crate::color::{TEXT_NORMAL, TEXT_INVERTED_HARD};
 use crate::context::Context;
@@ -38,6 +38,27 @@ impl Intermission {
                 sort(&mut files, SortMethod::Opened, true);
                 if !files.is_empty() {
                     Message::Cover(context.library.home.join(&files[0].file.path))
+                } else {
+                    Message::Text(kind.text().to_string())
+                }
+            },
+            Some(SCREENSAVER_SPECIAL_PATH) => {
+                let dir = PathBuf::from("/mnt/onboard/.kobo/screensaver");
+                let mut files: Vec<_> = std::fs::read_dir(&dir).ok()
+                    .map(|rd| rd.filter_map(|e| e.ok())
+                        .filter(|e| e.file_name()
+                            .to_str()
+                            .map(|name| !name.starts_with('.'))
+                            .unwrap_or(false))
+                        .map(|e| e.path())
+                        .filter(|p| p.extension()
+                            .map(|e| e.eq_ignore_ascii_case("png"))
+                            .unwrap_or(false))
+                        .collect())
+                    .unwrap_or_default();
+                if !files.is_empty() {
+                    let index = (chrono::Local::now().timestamp_subsec_nanos() as usize) % files.len();
+                    Message::Image(files.swap_remove(index))
                 } else {
                     Message::Text(kind.text().to_string())
                 }

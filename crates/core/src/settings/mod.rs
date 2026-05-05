@@ -21,6 +21,7 @@ pub const INTERNAL_CARD_ROOT: &str = "/mnt/onboard";
 pub const EXTERNAL_CARD_ROOT: &str = "/mnt/sd";
 pub const LOGO_SPECIAL_PATH: &str = "logo:";
 pub const COVER_SPECIAL_PATH: &str = "cover:";
+pub const SCREENSAVER_SPECIAL_PATH: &str = "screensaver:";
 // Default font size in points.
 pub const DEFAULT_FONT_SIZE: f32 = 11.0;
 // Default margin width in millimeters.

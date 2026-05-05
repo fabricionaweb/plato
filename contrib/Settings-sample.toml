@@ -67,7 +67,7 @@ name = "KePub"
 path = "/mnt/onboard/.kobo/kepub"
 
 # Defines the images displayed when entering an intermission.
-# Possible values: "logo:", "cover:", "/path/to/image/file".
+# Possible values: "logo:", "cover:", "screensaver:", "/path/to/image/file".
 # If a relative file path is given, it will be relative to
 # the installation directory.
 [intermissions]
